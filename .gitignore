@@ -23,5 +23,8 @@ go.work.sum
 .env
 
 # editor
-.vscode
 .idea/*
+.zed
+
+# misc
+.DS_Store
