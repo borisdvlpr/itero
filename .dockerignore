@@ -1,0 +1,24 @@
+# vcs
+.git/
+.gitignore
+
+# ci
+.github/
+
+# editor
+.idea/
+.zed/
+
+# env
+.env
+
+# docker
+.dockerignore
+Dockerfile*
+docker-compose*
+
+# documentation
+*.md
+
+# misc
+*.DS_Store
