@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"syscall"
@@ -33,7 +33,7 @@ func Run(cfg *config.Config) error {
 		}
 	}()
 
-	log.Printf("server listening on %s", srv.Addr)
+	slog.Info(fmt.Sprintf("server listening on %s", srv.Addr))
 
 	select {
 	case err := <-serverErr:

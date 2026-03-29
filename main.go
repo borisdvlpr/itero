@@ -1,7 +1,9 @@
 package main
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
+	"os"
 
 	server "github.com/borisdvlpr/itero/cmd"
 	"github.com/borisdvlpr/itero/internal/config"
@@ -10,15 +12,17 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Printf("unable to load .env file: %v. Using default values.", err)
+		slog.Info(fmt.Sprintf("unable to load .env file: %v. Using default values.", err))
 	}
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
+		slog.Error(fmt.Sprintf("failed to load config: %v", err))
+		os.Exit(1)
 	}
 
 	if err := server.Run(cfg); err != nil {
-		log.Fatalf("server exited with error: %v", err)
+		slog.Error(fmt.Sprintf("server exited with error: %v", err))
+		os.Exit(1)
 	}
 }
