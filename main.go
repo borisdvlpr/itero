@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
 
@@ -12,17 +11,17 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		slog.Info(fmt.Sprintf("unable to load .env file: %v. Using default values.", err))
+		slog.Info("unable to load .env file; using default values", "error", err)
 	}
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		slog.Error(fmt.Sprintf("failed to load config: %v", err))
+		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
 
 	if err := server.Run(cfg); err != nil {
-		slog.Error(fmt.Sprintf("server exited with error: %v", err))
+		slog.Error("server exited with error", "error", err)
 		os.Exit(1)
 	}
 }
