@@ -20,6 +20,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: cfg.LogLevel,
+	}))
+	slog.SetDefault(logger)
+
 	if err := server.Run(cfg); err != nil {
 		slog.Error("server exited with error", "error", err)
 		os.Exit(1)
