@@ -2,15 +2,18 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
 type Config struct {
-	Address string
-	Port    string
-	Timeout time.Duration
+	Address  string
+	Port     string
+	LogLevel slog.Level
+	Timeout  time.Duration
 }
 
 func LoadConfig() (*Config, error) {
@@ -20,9 +23,10 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address: envOrDefault("ADDRESS", "0.0.0.0"),
-		Port:    envOrDefault("PORT", "3000"),
-		Timeout: time.Duration(timeout),
+		Address:  envOrDefault("ADDRESS", "0.0.0.0"),
+		Port:     envOrDefault("PORT", "3000"),
+		LogLevel: envLogLevel(),
+		Timeout:  time.Duration(timeout),
 	}, nil
 }
 
@@ -32,4 +36,19 @@ func envOrDefault(key, defaultValue string) string {
 	}
 
 	return defaultValue
+}
+
+func envLogLevel() slog.Level {
+	levelStr := os.Getenv("LOG_LEVEL")
+
+	switch strings.ToLower(levelStr) {
+	case "debug":
+		return slog.LevelDebug
+	case "warn":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
 }
