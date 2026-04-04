@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
+
 	if err := godotenv.Load(); err != nil {
 		slog.Info("unable to load .env file; using default values", "error", err)
 	}
