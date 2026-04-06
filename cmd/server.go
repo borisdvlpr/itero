@@ -53,6 +53,7 @@ func service() http.Handler {
 
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
 
 	health := handler.NewHealthHandler()
 	health.Routes(r)
