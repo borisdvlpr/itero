@@ -51,7 +51,7 @@ func Run(cfg *config.Config) error {
 func service() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.Logger)
+	r.Use(requestLogMiddleware())
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 
@@ -59,4 +59,11 @@ func service() http.Handler {
 	health.Routes(r)
 
 	return r
+}
+
+func requestLogMiddleware() func(http.Handler) http.Handler {
+	return middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger:  slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo),
+		NoColor: true,
+	})
 }
