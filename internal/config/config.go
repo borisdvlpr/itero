@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -65,4 +66,19 @@ func envLogLevel() slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func (cfg Config) DSN() string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.PgUser, cfg.PgPassword),
+		Host:   fmt.Sprintf("%s:%s", cfg.PgHost, cfg.PgPort),
+		Path:   cfg.PgDatabase,
+	}
+
+	q := u.Query()
+	q.Set("sslmode", cfg.PgSslMode)
+	u.RawQuery = q.Encode()
+
+	return u.String()
 }
