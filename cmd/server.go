@@ -11,12 +11,24 @@ import (
 	"time"
 
 	"github.com/borisdvlpr/itero/internal/config"
+	"github.com/borisdvlpr/itero/internal/db"
 	"github.com/borisdvlpr/itero/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
 
 func Run(cfg *config.Config) error {
+	dsn := cfg.DSN()
+	if err := db.RunMigrations(dsn, cfg.MigrationsPath); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	pool, err := db.NewConnectionPool(context.Background(), dsn)
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+	defer pool.Close()
+
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
 		Handler: service(),
