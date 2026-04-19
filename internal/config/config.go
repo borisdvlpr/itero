@@ -34,7 +34,7 @@ func LoadConfig() (*Config, error) {
 		Address:        envOrDefault("ADDRESS", "0.0.0.0"),
 		Port:           envOrDefault("PORT", "3000"),
 		LogLevel:       envLogLevel(),
-		Timeout:        time.Duration(timeout),
+		Timeout:        time.Duration(timeout) * time.Second,
 		PgUser:         envOrDefault("PG_USER", "postgres"),
 		PgPassword:     envOrDefault("PG_PASSWORD", "password"),
 		PgHost:         envOrDefault("PG_HOST", "localhost"),
