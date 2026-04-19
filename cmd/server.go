@@ -63,9 +63,9 @@ func Run(cfg *config.Config) error {
 func service() http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(requestLogMiddleware())
-	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
+	r.Use(middleware.Recoverer)
+	r.Use(requestLogMiddleware())
 
 	health := handler.NewHealthHandler()
 	health.Routes(r)
