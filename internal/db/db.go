@@ -11,7 +11,7 @@ import (
 	"github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func NewConnectionPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
@@ -34,7 +34,7 @@ func NewConnectionPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 }
 
 func RunMigrations(dsn, migrationsPath string) error {
-	db, err := sql.Open("postgres", dsn)
+	db, err := sql.Open("pgx", dsn)
 	if err != nil {
 		return fmt.Errorf("open sql connection: %w", err)
 	}
