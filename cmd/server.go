@@ -15,6 +15,7 @@ import (
 	"github.com/borisdvlpr/itero/internal/handler"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func Run(cfg *config.Config) error {
@@ -31,7 +32,7 @@ func Run(cfg *config.Config) error {
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
-		Handler: service(),
+		Handler: service(pool),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -60,14 +61,14 @@ func Run(cfg *config.Config) error {
 	return srv.Shutdown(shutdownCtx)
 }
 
-func service() http.Handler {
+func service(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
 	r.Use(requestLogMiddleware())
 
-	health := handler.NewHealthHandler()
+	health := handler.NewHealthHandler(pool)
 	health.Routes(r)
 
 	return r
