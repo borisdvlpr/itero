@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -10,10 +11,17 @@ import (
 )
 
 type Config struct {
-	Address  string
-	Port     string
-	LogLevel slog.Level
-	Timeout  time.Duration
+	Address        string
+	Port           string
+	LogLevel       slog.Level
+	Timeout        time.Duration
+	PgUser         string
+	PgPassword     string
+	PgHost         string
+	PgPort         string
+	PgDatabase     string
+	PgSslMode      string
+	MigrationsPath string
 }
 
 func LoadConfig() (*Config, error) {
@@ -23,10 +31,17 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:  envOrDefault("ADDRESS", "0.0.0.0"),
-		Port:     envOrDefault("PORT", "3000"),
-		LogLevel: envLogLevel(),
-		Timeout:  time.Duration(timeout),
+		Address:        envOrDefault("ADDRESS", "0.0.0.0"),
+		Port:           envOrDefault("PORT", "3000"),
+		LogLevel:       envLogLevel(),
+		Timeout:        time.Duration(timeout) * time.Second,
+		PgUser:         envOrDefault("PG_USER", "postgres"),
+		PgPassword:     envOrDefault("PG_PASSWORD", "password"),
+		PgHost:         envOrDefault("PG_HOST", "localhost"),
+		PgPort:         envOrDefault("PG_PORT", "5432"),
+		PgDatabase:     envOrDefault("PG_DATABASE", "itero"),
+		PgSslMode:      envOrDefault("PG_SSLMODE", "disable"),
+		MigrationsPath: envOrDefault("MIGRATIONS_PATH", "./db/migrations"),
 	}, nil
 }
 
@@ -51,4 +66,19 @@ func envLogLevel() slog.Level {
 	default:
 		return slog.LevelInfo
 	}
+}
+
+func (cfg Config) DSN() string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(cfg.PgUser, cfg.PgPassword),
+		Host:   fmt.Sprintf("%s:%s", cfg.PgHost, cfg.PgPort),
+		Path:   cfg.PgDatabase,
+	}
+
+	q := u.Query()
+	q.Set("sslmode", cfg.PgSslMode)
+	u.RawQuery = q.Encode()
+
+	return u.String()
 }

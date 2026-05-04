@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS flags;
+DROP TYPE IF EXISTS flag_type;
