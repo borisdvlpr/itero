@@ -11,17 +11,16 @@ import (
 )
 
 type Config struct {
-	Address        string
-	Port           string
-	LogLevel       slog.Level
-	Timeout        time.Duration
-	PgUser         string
-	PgPassword     string
-	PgHost         string
-	PgPort         string
-	PgDatabase     string
-	PgSslMode      string
-	MigrationsPath string
+	Address    string
+	Port       string
+	LogLevel   slog.Level
+	Timeout    time.Duration
+	PgUser     string
+	PgPassword string
+	PgHost     string
+	PgPort     string
+	PgDatabase string
+	PgSslMode  string
 }
 
 func LoadConfig() (*Config, error) {
@@ -31,17 +30,16 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:        envOrDefault("ADDRESS", "0.0.0.0"),
-		Port:           envOrDefault("PORT", "3000"),
-		LogLevel:       envLogLevel(),
-		Timeout:        time.Duration(timeout) * time.Second,
-		PgUser:         envOrDefault("PG_USER", "postgres"),
-		PgPassword:     envOrDefault("PG_PASSWORD", "password"),
-		PgHost:         envOrDefault("PG_HOST", "localhost"),
-		PgPort:         envOrDefault("PG_PORT", "5432"),
-		PgDatabase:     envOrDefault("PG_DATABASE", "itero"),
-		PgSslMode:      envOrDefault("PG_SSLMODE", "disable"),
-		MigrationsPath: envOrDefault("MIGRATIONS_PATH", "./db/migrations"),
+		Address:    envOrDefault("ADDRESS", "0.0.0.0"),
+		Port:       envOrDefault("PORT", "3000"),
+		LogLevel:   envLogLevel(),
+		Timeout:    time.Duration(timeout) * time.Second,
+		PgUser:     envOrDefault("PG_USER", "postgres"),
+		PgPassword: envOrDefault("PG_PASSWORD", "password"),
+		PgHost:     envOrDefault("PG_HOST", "localhost"),
+		PgPort:     envOrDefault("PG_PORT", "5432"),
+		PgDatabase: envOrDefault("PG_DATABASE", "itero"),
+		PgSslMode:  envOrDefault("PG_SSLMODE", "disable"),
 	}, nil
 }
 

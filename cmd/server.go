@@ -20,7 +20,7 @@ import (
 
 func Run(cfg *config.Config) error {
 	dsn := cfg.DSN()
-	if err := db.RunMigrations(dsn, cfg.MigrationsPath); err != nil {
+	if err := db.RunMigrations(dsn); err != nil {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
