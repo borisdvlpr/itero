@@ -9,7 +9,7 @@ import (
 	"log/slog"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	pgxmigrate "github.com/golang-migrate/migrate/v4/database/pgx/v5"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -50,12 +50,12 @@ func RunMigrations(dsn string) error {
 	}
 	defer sqlDB.Close()
 
-	driver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
+	driver, err := pgxmigrate.WithInstance(sqlDB, &pgxmigrate.Config{})
 	if err != nil {
 		return fmt.Errorf("create migration driver: %w", err)
 	}
 
-	m, err := migrate.NewWithInstance("iofs", source, "postgres", driver)
+	m, err := migrate.NewWithInstance("iofs", source, "pgx5", driver)
 	if err != nil {
 		return fmt.Errorf("initialise migrator: %w", err)
 	}
@@ -65,11 +65,6 @@ func RunMigrations(dsn string) error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
-	version, dirty, err := m.Version()
-	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
-		return fmt.Errorf("read migration version: %w", err)
-	}
-
-	slog.Info("database migrations applied", "version", version, "dirty", dirty)
+	slog.Info("database migrations applied")
 	return nil
 }
