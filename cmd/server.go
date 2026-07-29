@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/borisdvlpr/itero/internal/config"
 	"github.com/borisdvlpr/itero/internal/db"
@@ -46,7 +45,7 @@ func Run(cfg *config.Config) error {
 		}
 	}()
 
-	slog.Info(fmt.Sprintf("server listening on %s", srv.Addr))
+	slog.Info("server listening", "addr", srv.Addr)
 
 	select {
 	case err := <-serverErr:
@@ -55,10 +54,15 @@ func Run(cfg *config.Config) error {
 		stop()
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeout*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
 	defer cancel()
 
-	return srv.Shutdown(shutdownCtx)
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("graceful shutdown failed: %w", err)
+	}
+
+	slog.Info("server stopped")
+	return nil
 }
 
 func service(pool *pgxpool.Pool) http.Handler {

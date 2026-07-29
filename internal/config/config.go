@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -24,16 +23,20 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	timeout, err := strconv.Atoi(envOrDefault("TIMEOUT", "30"))
+	timeout, err := time.ParseDuration(envOrDefault("TIMEOUT", "30s"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid TIMEOUT value: %w", err)
+	}
+
+	if timeout <= 0 {
+		return nil, fmt.Errorf("TIMEOUT must be positive, got %s", timeout)
 	}
 
 	return &Config{
 		Address:    envOrDefault("ADDRESS", "0.0.0.0"),
 		Port:       envOrDefault("PORT", "3000"),
 		LogLevel:   envLogLevel(),
-		Timeout:    time.Duration(timeout) * time.Second,
+		Timeout:    timeout,
 		PgUser:     envOrDefault("PG_USER", "postgres"),
 		PgPassword: envOrDefault("PG_PASSWORD", "password"),
 		PgHost:     envOrDefault("PG_HOST", "localhost"),
