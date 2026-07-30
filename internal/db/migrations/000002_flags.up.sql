@@ -11,5 +11,5 @@ CREATE TABLE flags (
     default_variant_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    UNIQUE (key, environment_id)
+    UNIQUE (environment_id, key)
 );
