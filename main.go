@@ -9,6 +9,10 @@ import (
 	"github.com/joho/godotenv"
 )
 
+var (
+	version = "dev"
+)
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
@@ -26,6 +30,8 @@ func main() {
 		Level: cfg.LogLevel,
 	}))
 	slog.SetDefault(logger)
+
+	slog.Info("itero", "version", version)
 
 	if err := server.Run(cfg); err != nil {
 		slog.Error("server exited with error", "error", err)
