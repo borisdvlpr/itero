@@ -1,25 +1,29 @@
 FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
-WORKDIR /app
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY . .
 
-RUN go build -o itero
+ARG TARGETOS
+ARG TARGETARCH
+ARG VERSION=dev
 
-# Use a multi-platform Alpine base image to ensure compatibility
-FROM --platform=$BUILDPLATFORM alpine:latest AS runtime
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build \
+      -trimpath \
+      -ldflags "-s -w -X main.version=${VERSION}" \
+      -o /out/itero .
 
-# Install any runtime dependencies that are needed to run your application.
-# Leverage a cache mount to /var/cache/apk/ to speed up subsequent builds.
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk --update add \
-        ca-certificates \
-        tzdata \
-        && \
-        update-ca-certificates
+FROM alpine:latest AS runtime
 
-# Create a non-privileged user that the app will run under.
-# See https://docs.docker.com/go/dockerfile-user-best-practices/
+RUN apk add --no-cache ca-certificates tzdata
+
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -31,8 +35,8 @@ RUN adduser \
     appuser
 USER appuser
 
-COPY --from=builder /app/itero /usr/bin/itero
+COPY --from=builder /out/itero /usr/bin/itero
 
-EXPOSE 3000
+EXPOSE 8000
 
 ENTRYPOINT ["/usr/bin/itero"]
