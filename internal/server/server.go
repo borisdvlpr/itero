@@ -69,6 +69,7 @@ func service(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
 	r.Use(requestLogMiddleware())
 	r.Use(middleware.Recoverer)
 
