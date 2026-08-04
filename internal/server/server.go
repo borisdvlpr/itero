@@ -1,4 +1,4 @@
-package cmd
+package server
 
 import (
 	"context"
@@ -69,8 +69,8 @@ func service(pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-	r.Use(middleware.Recoverer)
 	r.Use(requestLogMiddleware())
+	r.Use(middleware.Recoverer)
 
 	health := handler.NewHealthHandler(pool)
 	health.Routes(r)

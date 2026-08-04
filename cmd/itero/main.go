@@ -4,8 +4,8 @@ import (
 	"log/slog"
 	"os"
 
-	server "github.com/borisdvlpr/itero/cmd"
 	"github.com/borisdvlpr/itero/internal/config"
+	"github.com/borisdvlpr/itero/internal/server"
 	"github.com/joho/godotenv"
 )
 
