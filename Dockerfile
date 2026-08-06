@@ -1,4 +1,7 @@
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+ARG GO_VERSION=1.26
+ARG ALPINE_VERSION=latest
+
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
 
 WORKDIR /src
 
@@ -10,20 +13,25 @@ COPY . .
 
 ARG TARGETOS
 ARG TARGETARCH
+ARG TARGETVARIANT
 ARG VERSION=dev
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    CGO_ENABLED=0 \
+    GOOS=${TARGETOS} \
+    GOARCH=${TARGETARCH} \
+    GOARM=${TARGETVARIANT#v} \
     go build \
       -trimpath \
       -ldflags "-s -w -X main.version=${VERSION}" \
-      -o /out/itero .
+      -o /out/itero ./cmd/itero
 
-FROM alpine:latest AS runtime
+FROM alpine:${ALPINE_VERSION} AS runtime
 
 RUN apk add --no-cache ca-certificates tzdata
 
+# k8s cannot enforce runAsNonRoot when the image declares a username instead of a UID
 ARG UID=10001
 RUN adduser \
     --disabled-password \
@@ -33,10 +41,11 @@ RUN adduser \
     --no-create-home \
     --uid "${UID}" \
     appuser
-USER appuser
 
-COPY --from=builder /out/itero /usr/bin/itero
+COPY --from=builder /out/itero /usr/local/bin/itero
+
+USER 10001
 
 EXPOSE 8000
 
-ENTRYPOINT ["/usr/bin/itero"]
+ENTRYPOINT ["/usr/local/bin/itero"]
