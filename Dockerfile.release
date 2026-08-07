@@ -1,0 +1,22 @@
+FROM alpine:latest
+
+RUN apk add --no-cache ca-certificates tzdata
+
+ARG UID=10001
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --home "/nonexistent" \
+    --shell "/sbin/nologin" \
+    --no-create-home \
+    --uid "${UID}" \
+    appuser
+
+ARG TARGETPLATFORM
+COPY --chmod=0755 $TARGETPLATFORM/itero /usr/local/bin/itero
+
+USER 10001
+
+EXPOSE 8000
+
+ENTRYPOINT ["/usr/local/bin/itero"]
