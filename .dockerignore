@@ -1,24 +1,39 @@
 # vcs
 .git/
 .gitignore
+.gitattributes
+
+# build output
+/bin
+/dist
 
 # ci
 .github/
 
+# tooling
+taskfile.yaml
+.goreleaser.yaml
+
 # editor
 .idea/
+.vscode/
 .zed/
 
 # env
 .env
+.env.*
 
 # docker
 .dockerignore
 Dockerfile*
 docker-compose*
 
+# test and coverage output
+**/*.test
+**/*.out
+
 # documentation
-*.md
+**/*.md
 
 # misc
-*.DS_Store
+**/.DS_Store
