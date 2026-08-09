@@ -15,6 +15,10 @@ runs:
       run: go mod download
       shell: bash
 
+    - name: Verify dependencies
+      run: go mod verify
+      shell: bash
+
     - name: Build Project
       run: go build -v ./...
       shell: bash
