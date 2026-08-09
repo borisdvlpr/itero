@@ -1,16 +1,21 @@
-# This is an example .goreleaser.yml file with some sensible defaults.
 # Make sure to check the documentation at https://goreleaser.com
-
-# The lines below are called `modelines`. See `:help modeline`
-# Feel free to remove those if you don't want/need to use them.
 # yaml-language-server: $schema=https://goreleaser.com/static/schema.json
 # vim: set ts=2 sw=2 tw=0 fo=cnqoj
 
 version: 2
 
+project_name: itero
+
+before:
+  hooks:
+    - go mod download
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
 builds:
-  - dir: itero
-    main: main.go
+  - id: itero
+    main: ./cmd/itero
     binary: itero
     env:
       - CGO_ENABLED=0
@@ -19,12 +24,20 @@ builds:
     goarch:
       - amd64
       - arm64
-    ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - arm
+    goarm:
+      - "7"
+    flags:
+      - -trimpath
+    ldflags: 
+      - -s -w -X main.version={{ .Version }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - formats: [tar.gz]
-    # this name template makes the OS and Arch compatible with the results of `uname`.
+  - id: itero
+    ids:
+      - itero
+    formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -33,46 +46,38 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
 
-dockers:
-  - image_templates:
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:latest-amd64"
-    goos: linux
-    goarch: amd64
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - --platform=linux/amd64
-      - --target=runtime
-      - --label=org.opencontainers.image.version={{.Version}}
-      - --label=org.opencontainers.image.revision={{.Commit}}
-      - --label=org.opencontainers.image.created={{.Date}}
-
-  - image_templates:
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:{{ .Version }}-arm64"
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:latest-arm64"
-    goos: linux
-    goarch: arm64
-    dockerfile: Dockerfile
-    build_flag_templates:
-      - --platform=linux/arm64
-      - --target=runtime
-      - --label=org.opencontainers.image.version={{.Version}}
-      - --label=org.opencontainers.image.revision={{.Commit}}
-      - --label=org.opencontainers.image.created={{.Date}}
-
-docker_manifests:
-  - name_template: "docker.io/b0risdvlpr/{{ .ProjectName }}:{{ .Version }}"
-    image_templates:
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:{{ .Version }}-amd64"
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:{{ .Version }}-arm64"
-
-  - name_template: "docker.io/b0risdvlpr/{{ .ProjectName }}:latest"
-    image_templates:
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:latest-amd64"
-      - "docker.io/b0risdvlpr/{{ .ProjectName }}:latest-arm64"
+dockers_v2:
+  - id: itero
+    ids:
+      - itero
+    images:
+      - "docker.io/b0risdvlpr/{{ .ProjectName }}"
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    dockerfile: Dockerfile.release
+    platforms:
+      - linux/amd64
+      - linux/arm64
+      - linux/arm/v7
+    labels: &oci
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.description: "Self-hosted, Kubernetes-native feature flag management backend."
+      org.opencontainers.image.url: "https://github.com/borisdvlpr/itero"
+      org.opencontainers.image.source: "{{ .GitURL }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.licenses: "Apache-2.0"
+    annotations: *oci
 
 checksum:
   name_template: "checksums.txt"
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot"
+
+report_sizes: true
 
 changelog:
   sort: asc
@@ -84,3 +89,21 @@ changelog:
       - "^refactor"
       - "^style"
       - "^test"
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\(.+\))??!?:.+$'
+      order: 0
+    - title: Bug fixes
+      regexp: '^.*?fix(\(.+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+release:
+  prerelease: auto
+  footer: |
+    ## Container images
+
+    ```sh
+    docker pull docker.io/b0risdvlpr/itero:{{ .Version }}
+    ```
