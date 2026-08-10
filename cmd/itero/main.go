@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
 
@@ -16,9 +18,7 @@ var (
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
-	if err := godotenv.Load(); err != nil {
-		slog.Info("unable to load .env file; using default values", "error", err)
-	}
+	loadDotEnv()
 
 	cfg, err := config.LoadConfig()
 	if err != nil {
@@ -36,5 +36,19 @@ func main() {
 	if err := server.Run(cfg); err != nil {
 		slog.Error("server exited with error", "error", err)
 		os.Exit(1)
+	}
+}
+
+func loadDotEnv() {
+	err := godotenv.Load()
+
+	switch {
+	case err == nil:
+		slog.Info("loaded configuration from .env")
+
+	case errors.Is(err, fs.ErrNotExist):
+
+	default:
+		slog.Warn("found .env but could not load it", "error", err)
 	}
 }
