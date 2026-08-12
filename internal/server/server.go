@@ -19,15 +19,16 @@ import (
 
 func Run(cfg *config.Config) error {
 	dsn := cfg.DSN()
-	if err := db.RunMigrations(dsn); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
-	}
 
 	pool, err := db.NewConnectionPool(context.Background(), dsn)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer pool.Close()
+
+	if err := db.RunMigrations(dsn); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
