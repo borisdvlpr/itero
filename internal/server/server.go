@@ -18,9 +18,12 @@ import (
 )
 
 func Run(cfg *config.Config) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	dsn := cfg.DSN()
 
-	pool, err := db.NewConnectionPool(context.Background(), dsn)
+	pool, err := db.NewConnectionPool(ctx, dsn)
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -34,9 +37,6 @@ func Run(cfg *config.Config) error {
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
 		Handler: service(pool),
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	serverErr := make(chan error, 1)
 
@@ -52,7 +52,7 @@ func Run(cfg *config.Config) error {
 	case err := <-serverErr:
 		return err
 	case <-ctx.Done():
-		stop()
+
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
