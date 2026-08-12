@@ -65,6 +65,11 @@ func RunMigrations(dsn string) error {
 		return fmt.Errorf("apply migrations: %w", err)
 	}
 
-	slog.Info("database migrations applied")
+	version, dirty, err := m.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return fmt.Errorf("read migration version: %w", err)
+	}
+
+	slog.Info("database migrations applied", "version", version, "dirty", dirty)
 	return nil
 }
