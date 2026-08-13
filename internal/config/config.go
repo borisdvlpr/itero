@@ -14,7 +14,8 @@ type Config struct {
 	Address         string
 	Port            string
 	LogLevel        slog.Level
-	Timeout         time.Duration
+	ShutdownTimeout time.Duration
+	RequestTimeout  time.Duration
 	MaxRequestBytes int64
 	PgUser          string
 	PgPassword      string
@@ -25,13 +26,22 @@ type Config struct {
 }
 
 func LoadConfig() (*Config, error) {
-	timeout, err := time.ParseDuration(envOrDefault("TIMEOUT", "30s"))
+	shutdownTimeout, err := time.ParseDuration(envOrDefault("SHUTDOWN_TIMEOUT", "30s"))
 	if err != nil {
-		return nil, fmt.Errorf("invalid TIMEOUT value: %w", err)
+		return nil, fmt.Errorf("invalid SHUTDOWN_TIMEOUT value: %w", err)
 	}
 
-	if timeout <= 0 {
-		return nil, fmt.Errorf("TIMEOUT must be positive, got %s", timeout)
+	if shutdownTimeout <= 0 {
+		return nil, fmt.Errorf("SHUTDOWN_TIMEOUT must be positive, got %s", shutdownTimeout)
+	}
+
+	requestTimeout, err := time.ParseDuration(envOrDefault("REQUEST_TIMEOUT", "10s"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid REQUEST_TIMEOUT value: %w", err)
+	}
+
+	if requestTimeout <= 0 {
+		return nil, fmt.Errorf("REQUEST_TIMEOUT must be positive, got %s", requestTimeout)
 	}
 
 	maxRequestBytes, err := envInt64("MAX_REQUEST_BYTES", 1<<20)
@@ -47,7 +57,8 @@ func LoadConfig() (*Config, error) {
 		Address:         envOrDefault("ADDRESS", "0.0.0.0"),
 		Port:            envOrDefault("PORT", "8000"),
 		LogLevel:        envLogLevel(),
-		Timeout:         timeout,
+		ShutdownTimeout: shutdownTimeout,
+		RequestTimeout:  requestTimeout,
 		MaxRequestBytes: maxRequestBytes,
 		PgUser:          envOrDefault("PG_USER", "postgres"),
 		PgPassword:      envOrDefault("PG_PASSWORD", "password"),
