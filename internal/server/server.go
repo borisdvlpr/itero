@@ -12,8 +12,10 @@ import (
 	"github.com/borisdvlpr/itero/internal/config"
 	"github.com/borisdvlpr/itero/internal/db"
 	"github.com/borisdvlpr/itero/internal/handler"
+	mw "github.com/borisdvlpr/itero/internal/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -35,7 +37,7 @@ func Run(cfg *config.Config) error {
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
-		Handler: service(pool),
+		Handler: service(cfg, pool),
 	}
 
 	serverErr := make(chan error, 1)
@@ -66,13 +68,14 @@ func Run(cfg *config.Config) error {
 	return nil
 }
 
-func service(pool *pgxpool.Pool) http.Handler {
+func service(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(chimw.RequestID)
+	r.Use(chimw.RealIP)
 	r.Use(requestLogMiddleware())
-	r.Use(middleware.Recoverer)
+	r.Use(chimw.Recoverer)
+	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
 
 	health := handler.NewHealthHandler(pool)
 	health.Routes(r)
