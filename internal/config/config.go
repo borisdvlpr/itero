@@ -5,21 +5,23 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	Address    string
-	Port       string
-	LogLevel   slog.Level
-	Timeout    time.Duration
-	PgUser     string
-	PgPassword string
-	PgHost     string
-	PgPort     string
-	PgDatabase string
-	PgSslMode  string
+	Address         string
+	Port            string
+	LogLevel        slog.Level
+	Timeout         time.Duration
+	MaxRequestBytes int64
+	PgUser          string
+	PgPassword      string
+	PgHost          string
+	PgPort          string
+	PgDatabase      string
+	PgSslMode       string
 }
 
 func LoadConfig() (*Config, error) {
@@ -32,26 +34,50 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("TIMEOUT must be positive, got %s", timeout)
 	}
 
+	maxRequestBytes, err := envInt64("MAX_REQUEST_BYTES", 1<<20)
+	if err != nil {
+		return nil, err
+	}
+
+	if maxRequestBytes <= 0 {
+		return nil, fmt.Errorf("MAX_REQUEST_BYTES must be positive, got %d", maxRequestBytes)
+	}
+
 	return &Config{
-		Address:    envOrDefault("ADDRESS", "0.0.0.0"),
-		Port:       envOrDefault("PORT", "8000"),
-		LogLevel:   envLogLevel(),
-		Timeout:    timeout,
-		PgUser:     envOrDefault("PG_USER", "postgres"),
-		PgPassword: envOrDefault("PG_PASSWORD", "password"),
-		PgHost:     envOrDefault("PG_HOST", "localhost"),
-		PgPort:     envOrDefault("PG_PORT", "5432"),
-		PgDatabase: envOrDefault("PG_DATABASE", "itero"),
-		PgSslMode:  envOrDefault("PG_SSLMODE", "disable"),
+		Address:         envOrDefault("ADDRESS", "0.0.0.0"),
+		Port:            envOrDefault("PORT", "8000"),
+		LogLevel:        envLogLevel(),
+		Timeout:         timeout,
+		MaxRequestBytes: maxRequestBytes,
+		PgUser:          envOrDefault("PG_USER", "postgres"),
+		PgPassword:      envOrDefault("PG_PASSWORD", "password"),
+		PgHost:          envOrDefault("PG_HOST", "localhost"),
+		PgPort:          envOrDefault("PG_PORT", "5432"),
+		PgDatabase:      envOrDefault("PG_DATABASE", "itero"),
+		PgSslMode:       envOrDefault("PG_SSLMODE", "disable"),
 	}, nil
 }
 
-func envOrDefault(key, defaultValue string) string {
+func envOrDefault(key string, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
 
 	return defaultValue
+}
+
+func envInt64(key string, defaultValue int64) (int64, error) {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue, nil
+	}
+
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s value: %w", key, err)
+	}
+
+	return n, nil
 }
 
 func envLogLevel() slog.Level {
