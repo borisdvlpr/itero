@@ -57,7 +57,7 @@ func Run(cfg *config.Config) error {
 
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Timeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -76,6 +76,7 @@ func service(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 	r.Use(requestLogMiddleware())
 	r.Use(chimw.Recoverer)
 	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
+	r.Use(chimw.Timeout(cfg.RequestTimeout))
 
 	health := handler.NewHealthHandler(pool)
 	health.Routes(r)
