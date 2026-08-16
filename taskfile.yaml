@@ -1,0 +1,94 @@
+version: "3"
+
+silent: true
+
+vars:
+  MAIN_PATH: ./cmd/itero
+  BINARY_NAME: bin/itero
+  IMAGE_NAME: b0risdvlpr/itero
+  VERSION:
+    sh: git describe --tags --always --dirty 2>/dev/null || echo "dev"
+
+tasks:
+  check-go:
+    desc: Verify that Go is installed
+    cmds:
+      - |
+        if ! command -v go >/dev/null 2>&1; then
+          echo "Error: Go is not installed. Please install Go before proceeding."
+          exit 1
+        fi
+        echo "Using $(go version)."
+
+  fmt:
+    desc: Format the code and tidy dependencies
+    cmds:
+      - echo "Formatting code..."
+      - go fmt ./...
+      - go mod tidy
+      - echo "Code formatted."
+
+  lint:
+    desc: Check formatting and run go vet
+    cmds:
+      - echo "Checking formatting..."
+      - |
+        unformatted="$(gofmt -l .)"
+        if [ -n "$unformatted" ]; then
+          echo "The following files are not formatted:"
+          echo "$unformatted"
+          exit 1
+        fi
+      - go vet ./...
+      - echo "Lint passed."
+
+  test:
+    desc: Run unit tests
+    cmds:
+      - echo "Running unit tests..."
+      - go test ./... -v
+      - echo "Tests passed."
+
+  build:
+    desc: Build the binary for the current platform
+    deps: [check-go, test]
+    env:
+      CGO_ENABLED: "0"
+    cmds:
+      - echo "Building itero for {{OS}}/{{ARCH}}..."
+      - go build -trimpath -ldflags "-s -w -X main.version={{.VERSION}}" -o {{.BINARY_NAME}} {{.MAIN_PATH}}
+      - echo "Build completed."
+
+  run:
+    desc: Build and run itero locally (requires a reachable PostgreSQL)
+    deps: [build]
+    cmds:
+      - echo "Starting itero..."
+      - ./{{.BINARY_NAME}}
+
+  docker:
+    desc: Build the container image for the current platform
+    cmds:
+      - echo "Building {{.IMAGE_NAME}}:{{.VERSION}}..."
+      - docker build --target runtime --build-arg VERSION={{.VERSION}} -t {{.IMAGE_NAME}}:{{.VERSION}} .
+      - echo "Image built."
+
+  snapshot:
+    desc: Build release artifacts locally with GoReleaser, without publishing
+    cmds:
+      - echo "Running GoReleaser snapshot..."
+      - goreleaser release --snapshot --clean --skip=docker
+      - echo "Artifacts available in dist/."
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -rf bin/ dist/
+      - echo "Cleaned up."
+
+  all:
+    desc: Format, lint, test, and build itero
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: build
