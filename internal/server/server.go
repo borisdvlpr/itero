@@ -14,12 +14,13 @@ import (
 	"github.com/borisdvlpr/itero/internal/handler"
 	mw "github.com/borisdvlpr/itero/internal/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func Run(cfg *config.Config) error {
+	logger := slog.Default()
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -37,7 +38,7 @@ func Run(cfg *config.Config) error {
 
 	srv := &http.Server{
 		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
-		Handler: service(cfg, pool),
+		Handler: service(cfg, logger, pool),
 	}
 
 	serverErr := make(chan error, 1)
@@ -68,12 +69,12 @@ func Run(cfg *config.Config) error {
 	return nil
 }
 
-func service(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
+func service(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
 	r.Use(chimw.RealIP)
-	r.Use(requestLogMiddleware())
+	r.Use(mw.RequestLogger(logger, "/healthz", "/readyz"))
 	r.Use(chimw.Recoverer)
 	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
 	r.Use(chimw.Timeout(cfg.RequestTimeout))
@@ -82,11 +83,4 @@ func service(cfg *config.Config, pool *pgxpool.Pool) http.Handler {
 	health.Routes(r)
 
 	return r
-}
-
-func requestLogMiddleware() func(http.Handler) http.Handler {
-	return middleware.RequestLogger(&middleware.DefaultLogFormatter{
-		Logger:  slog.NewLogLogger(slog.Default().Handler(), slog.LevelInfo),
-		NoColor: true,
-	})
 }

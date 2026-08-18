@@ -1,3 +1,5 @@
+// Package middleware holds itero's own HTTP middleware. chi's middleware
+// package is imported here as chimw to keep the two distinguishable.
 package middleware
 
 import "net/http"
