@@ -2,15 +2,24 @@
 // package is imported here as chimw to keep the two distinguishable.
 package middleware
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
 
-// MaxBodyBytes limits request bodies to limit bytes. Oversized reads fail with
-// *http.MaxBytesError; handlers should return 413.
+	"github.com/borisdvlpr/itero/internal/response"
+)
+
+// MaxBodyBytes limits request bodies to limit bytes. A declared oversize is
+// rejected here; a chunked or under-declared body instead fails when the
+// handler reads it, with *http.MaxBytesError, which response.ErrorFrom maps to
+// the same 413.
 func MaxBodyBytes(limit int64) func(http.Handler) http.Handler {
+	detail := fmt.Sprintf("request body exceeds %d bytes", limit)
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ContentLength > limit {
-				http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+				response.Error(w, r, http.StatusRequestEntityTooLarge, detail)
 				return
 			}
 
