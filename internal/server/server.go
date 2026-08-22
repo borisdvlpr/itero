@@ -86,7 +86,7 @@ func service(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.H
 	r.Use(response.Dialects(ofrepPrefix))
 
 	r.Use(mw.RequestLogger(logger, "/healthz", "/readyz"))
-	r.Use(chimw.Recoverer)
+	r.Use(mw.Recoverer(logger))
 	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
 	r.Use(chimw.Timeout(cfg.RequestTimeout))
 
