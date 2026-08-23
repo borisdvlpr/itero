@@ -38,8 +38,13 @@ func Run(cfg *config.Config) error {
 	}
 	defer pool.Close()
 
-	if err := db.RunMigrations(dsn); err != nil {
-		return fmt.Errorf("failed to run migrations: %w", err)
+	if cfg.RunMigrations {
+		if err := db.RunMigrations(cfg.DSN()); err != nil {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
+
+	} else {
+		logger.Info("migrations skipped", "reason", "RUN_MIGRATIONS is false")
 	}
 
 	srv := &http.Server{

@@ -23,6 +23,7 @@ type Config struct {
 	PgPort          string
 	PgDatabase      string
 	PgSslMode       string
+	RunMigrations   bool
 }
 
 func LoadConfig() (*Config, error) {
@@ -53,6 +54,11 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("MAX_REQUEST_BYTES must be positive, got %d", maxRequestBytes)
 	}
 
+	runMigrations, err := envBoolean("RUN_MIGRATIONS", true)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Config{
 		Address:         envOrDefault("ADDRESS", "0.0.0.0"),
 		Port:            envOrDefault("PORT", "8000"),
@@ -66,6 +72,7 @@ func LoadConfig() (*Config, error) {
 		PgPort:          envOrDefault("PG_PORT", "5432"),
 		PgDatabase:      envOrDefault("PG_DATABASE", "itero"),
 		PgSslMode:       envOrDefault("PG_SSLMODE", "disable"),
+		RunMigrations:   runMigrations,
 	}, nil
 }
 
@@ -89,6 +96,20 @@ func envInt64(key string, defaultValue int64) (int64, error) {
 	}
 
 	return n, nil
+}
+
+func envBoolean(key string, defaultValue bool) (bool, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return defaultValue, nil
+	}
+
+	b, err := strconv.ParseBool(raw)
+	if err != nil {
+		return false, fmt.Errorf("%s: %q is not a valid boolean", key, raw)
+	}
+
+	return b, nil
 }
 
 func envLogLevel() slog.Level {
