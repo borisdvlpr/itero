@@ -1,12 +1,13 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -30,26 +31,31 @@ type ServerConfig struct {
 
 // Addr renders the listen address in the form http.Server expects.
 func (s ServerConfig) Addr() string {
-	return fmt.Sprintf("%s:%s", s.Address, s.Port)
+	return net.JoinHostPort(s.Address, s.Port)
 }
 
 // DBConfig holds the Postgres connection settings and the migration switch.
 type DBConfig struct {
-	User          string
-	Password      string
-	Host          string
-	Port          string
-	Database      string
-	SSLMode       string
-	RunMigrations bool
+	User              string
+	Password          string
+	Host              string
+	Port              string
+	Database          string
+	SSLMode           string
+	MaxConns          int32
+	MinConns          int32
+	MaxConnLifetime   time.Duration
+	MaxConnIdleTime   time.Duration
+	HealthCheckPeriod time.Duration
+	ConnectTimeout    time.Duration
+	RunMigrations     bool
 }
 
-// DSN renders the connection string shared by the pgx pool and golang-migrate.
 func (d DBConfig) Dsn() string {
 	u := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(d.User, d.Password),
-		Host:   fmt.Sprintf("%s:%s", d.Host, d.Port),
+		Host:   net.JoinHostPort(d.Host, d.Port),
 		Path:   d.Database,
 	}
 
@@ -60,107 +66,168 @@ func (d DBConfig) Dsn() string {
 	return u.String()
 }
 
-func LoadConfig() (*Config, error) {
-	shutdownTimeout, err := time.ParseDuration(envOrDefault("SHUTDOWN_TIMEOUT", "30s"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid SHUTDOWN_TIMEOUT value: %w", err)
-	}
-
-	if shutdownTimeout <= 0 {
-		return nil, fmt.Errorf("SHUTDOWN_TIMEOUT must be positive, got %s", shutdownTimeout)
-	}
-
-	requestTimeout, err := time.ParseDuration(envOrDefault("REQUEST_TIMEOUT", "10s"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid REQUEST_TIMEOUT value: %w", err)
-	}
-
-	if requestTimeout <= 0 {
-		return nil, fmt.Errorf("REQUEST_TIMEOUT must be positive, got %s", requestTimeout)
-	}
-
-	maxRequestBytes, err := envInt64("MAX_REQUEST_BYTES", 1<<20)
-	if err != nil {
-		return nil, err
-	}
-
-	if maxRequestBytes <= 0 {
-		return nil, fmt.Errorf("MAX_REQUEST_BYTES must be positive, got %d", maxRequestBytes)
-	}
-
-	runMigrations, err := envBoolean("RUN_MIGRATIONS", true)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Config{
-		LogLevel: envLogLevel(),
-		Server: ServerConfig{
-			Address:         envOrDefault("ADDRESS", "0.0.0.0"),
-			Port:            envOrDefault("PORT", "8000"),
-			ShutdownTimeout: shutdownTimeout,
-			RequestTimeout:  requestTimeout,
-			MaxRequestBytes: maxRequestBytes,
-		},
-		DB: DBConfig{
-			User:          envOrDefault("PG_USER", "postgres"),
-			Password:      envOrDefault("PG_PASSWORD", "password"),
-			Host:          envOrDefault("PG_HOST", "localhost"),
-			Port:          envOrDefault("PG_PORT", "5432"),
-			Database:      envOrDefault("PG_DATABASE", "itero"),
-			SSLMode:       envOrDefault("PG_SSLMODE", "disable"),
-			RunMigrations: runMigrations,
-		},
-	}, nil
+// LogValue implements slog.LogValuer so that logging a DBConfig — directly or
+// as part of a Config — can never leak the password.
+func (d DBConfig) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("user", d.User),
+		slog.String("password", "REDACTED"),
+		slog.String("host", d.Host),
+		slog.String("port", d.Port),
+		slog.String("database", d.Database),
+		slog.String("sslmode", d.SSLMode),
+		slog.Int("max_conns", int(d.MaxConns)),
+		slog.Bool("run_migrations", d.RunMigrations),
+	)
 }
 
-func envOrDefault(key string, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// LoadConfig reads configuration from the environment. Every problem found is
+// collected and returned together, so a misconfigured deployment reports all
+// of its mistakes on the first boot rather than one per restart.
+func LoadConfig() (*Config, error) {
+	var l loader
+
+	cfg := &Config{
+		LogLevel: l.logLevel("LOG_LEVEL", slog.LevelInfo),
+		Server: ServerConfig{
+			Address:         l.optional("ADDRESS", "0.0.0.0"),
+			Port:            l.optional("PORT", "8000"),
+			ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "30s"),
+			RequestTimeout:  l.duration("REQUEST_TIMEOUT", "10s"),
+			MaxRequestBytes: l.integer("MAX_REQUEST_BYTES", 1<<20),
+		},
+		DB: DBConfig{
+			User:              l.optional("PG_USER", "postgres"),
+			Password:          l.required("PG_PASSWORD"),
+			Host:              l.optional("PG_HOST", "localhost"),
+			Port:              l.optional("PG_PORT", "5432"),
+			Database:          l.optional("PG_DATABASE", "itero"),
+			SSLMode:           l.enum("PG_SSLMODE", "disable", "disable", "allow", "prefer", "require", "verify-ca", "verify-full"),
+			MaxConns:          int32(l.integer("PG_MAX_CONNS", 10)),
+			MinConns:          int32(l.integer("PG_MIN_CONNS", 2)),
+			MaxConnLifetime:   l.duration("PG_MAX_CONN_LIFETIME", "1h"),
+			MaxConnIdleTime:   l.duration("PG_MAX_CONN_IDLE_TIME", "30m"),
+			HealthCheckPeriod: l.duration("PG_HEALTH_CHECK_PERIOD", "1m"),
+			ConnectTimeout:    l.duration("PG_CONNECT_TIMEOUT", "30s"),
+			RunMigrations:     l.boolean("RUN_MIGRATIONS", true),
+		},
+	}
+
+	if err := l.err(); err != nil {
+		return nil, err
+	}
+
+	if cfg.DB.MinConns > cfg.DB.MaxConns {
+		return nil, fmt.Errorf("PG_MIN_CONNS (%d) must not exceed PG_MAX_CONNS (%d)", cfg.DB.MinConns, cfg.DB.MaxConns)
+	}
+
+	return cfg, nil
+}
+
+// loader accumulates configuration errors instead of returning on the first one.
+type loader struct {
+	errs []error
+}
+
+func (l *loader) fail(format string, args ...any) {
+	l.errs = append(l.errs, fmt.Errorf(format, args...))
+}
+
+func (l *loader) err() error {
+	return errors.Join(l.errs...)
+}
+
+func (l *loader) optional(key, defaultValue string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
 
 	return defaultValue
 }
 
-func envInt64(key string, defaultValue int64) (int64, error) {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue, nil
+func (l *loader) required(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		l.fail("%s is required but is not set", key)
 	}
 
-	n, err := strconv.ParseInt(value, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid %s value: %w", key, err)
-	}
-
-	return n, nil
+	return v
 }
 
-func envBoolean(key string, defaultValue bool) (bool, error) {
+func (l *loader) enum(key, defaultValue string, allowed ...string) string {
+	v := l.optional(key, defaultValue)
+	for _, a := range allowed {
+		if v == a {
+			return v
+		}
+	}
+
+	l.fail("%s: %q is not one of %v", key, v, allowed)
+	return defaultValue
+}
+
+func (l *loader) duration(key, defaultValue string) time.Duration {
+	raw := l.optional(key, defaultValue)
+
+	d, err := time.ParseDuration(raw)
+	if err != nil {
+		l.fail("%s: %q is not a valid duration (want e.g. 30s, 5m, 1h)", key, raw)
+		return 0
+	}
+
+	if d <= 0 {
+		l.fail("%s must be positive, got %s", key, d)
+	}
+
+	return d
+}
+
+func (l *loader) integer(key string, defaultValue int64) int64 {
 	raw := os.Getenv(key)
 	if raw == "" {
-		return defaultValue, nil
+		return defaultValue
+	}
+
+	n, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil {
+		l.fail("%s: %q is not a valid integer", key, raw)
+		return defaultValue
+	}
+
+	if n <= 0 {
+		l.fail("%s must be positive, got %d", key, n)
+	}
+
+	return n
+}
+
+func (l *loader) boolean(key string, defaultValue bool) bool {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return defaultValue
 	}
 
 	b, err := strconv.ParseBool(raw)
 	if err != nil {
-		return false, fmt.Errorf("%s: %q is not a valid boolean", key, raw)
+		l.fail("%s: %q is not a valid boolean", key, raw)
+		return defaultValue
 	}
 
-	return b, nil
+	return b
 }
 
-func envLogLevel() slog.Level {
-	levelStr := os.Getenv("LOG_LEVEL")
-
-	switch strings.ToLower(levelStr) {
-	case "debug":
-		return slog.LevelDebug
-	case "warn":
-		return slog.LevelWarn
-	case "error":
-		return slog.LevelError
-	default:
-		return slog.LevelInfo
+// logLevel rejects unknown values rather than silently falling back to the default value
+func (l *loader) logLevel(key string, defaultValue slog.Level) slog.Level {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return defaultValue
 	}
+
+	var lvl slog.Level
+	if err := lvl.UnmarshalText([]byte(raw)); err != nil {
+		l.fail("%s: %q is not a valid log level (want debug, info, warn or error)", key, raw)
+		return defaultValue
+	}
+
+	return lvl
 }
