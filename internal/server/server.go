@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/borisdvlpr/itero/internal/config"
 	"github.com/borisdvlpr/itero/internal/db"
@@ -16,7 +17,6 @@ import (
 	"github.com/borisdvlpr/itero/internal/response"
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
-	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // ofrepPrefix is the namespace reserved by the OpenFeature Remote Evaluation
@@ -24,15 +24,30 @@ import (
 // OFREP's own shapes, so both must be derived from this one constant.
 const ofrepPrefix = "/ofrep"
 
+// readinessTimeout bounds the database check behind /readyz. It is kept short
+// and independent of RequestTimeout: a probe that takes longer than the
+// kubelet's own timeout is indistinguishable from a failure.
+const readinessTimeout = 2 * time.Second
+
+type Dependencies struct {
+	Db handler.Pingable
+}
+
 func Run(cfg *config.Config) error {
 	logger := slog.Default()
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-
-	dsn := cfg.DB.Dsn()
-
-	pool, err := db.NewConnectionPool(ctx, dsn)
+	// The pool is created before migrations so that its startup backoff
+	// absorbs a database that is not accepting connections yet.
+	pool, err := db.NewConnectionPool(context.Background(), db.PoolConfig{
+		DSN:               cfg.DB.Dsn(),
+		MaxConns:          cfg.DB.MaxConns,
+		MinConns:          cfg.DB.MinConns,
+		MaxConnLifetime:   cfg.DB.MaxConnLifetime,
+		MaxConnIdleTime:   cfg.DB.MaxConnIdleTime,
+		HealthCheckPeriod: cfg.DB.HealthCheckPeriod,
+		ConnectTimeout:    cfg.DB.ConnectTimeout,
+		ApplicationName:   "itero",
+	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -48,9 +63,13 @@ func Run(cfg *config.Config) error {
 	}
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Server.Address, cfg.Server.Port),
-		Handler: service(cfg, logger, pool),
+		Addr:     cfg.Server.Addr(),
+		Handler:  service(cfg.Server, logger, Dependencies{Db: pool}),
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
 
 	serverErr := make(chan error, 1)
 
@@ -80,7 +99,7 @@ func Run(cfg *config.Config) error {
 	return nil
 }
 
-func service(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.Handler {
+func service(cfg config.ServerConfig, logger *slog.Logger, deps Dependencies) http.Handler {
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
@@ -92,10 +111,10 @@ func service(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.H
 
 	r.Use(mw.RequestLogger(logger, "/healthz", "/readyz"))
 	r.Use(mw.Recoverer(logger))
-	r.Use(mw.MaxBodyBytes(cfg.Server.MaxRequestBytes))
-	r.Use(chimw.Timeout(cfg.Server.RequestTimeout))
+	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
+	r.Use(chimw.Timeout(cfg.RequestTimeout))
 
-	health := handler.NewHealthHandler(pool)
+	health := handler.NewHealthHandler(deps.Db, readinessTimeout)
 	health.Routes(r)
 
 	return r
