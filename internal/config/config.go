@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -156,10 +157,8 @@ func (l *loader) required(key string) string {
 
 func (l *loader) enum(key, defaultValue string, allowed ...string) string {
 	v := l.optional(key, defaultValue)
-	for _, a := range allowed {
-		if v == a {
-			return v
-		}
+	if slices.Contains(allowed, v) {
+		return v
 	}
 
 	l.fail("%s: %q is not one of %v", key, v, allowed)
