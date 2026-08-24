@@ -30,7 +30,7 @@ func Run(cfg *config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	dsn := cfg.DB.DSN()
+	dsn := cfg.DB.Dsn()
 
 	pool, err := db.NewConnectionPool(ctx, dsn)
 	if err != nil {
@@ -39,7 +39,7 @@ func Run(cfg *config.Config) error {
 	defer pool.Close()
 
 	if cfg.DB.RunMigrations {
-		if err := db.RunMigrations(cfg.DB.DSN()); err != nil {
+		if err := db.RunMigrations(cfg.DB.Dsn()); err != nil {
 			return fmt.Errorf("failed to run migrations: %w", err)
 		}
 

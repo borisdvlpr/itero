@@ -45,7 +45,7 @@ type DBConfig struct {
 }
 
 // DSN renders the connection string shared by the pgx pool and golang-migrate.
-func (d DBConfig) DSN() string {
+func (d DBConfig) Dsn() string {
 	u := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(d.User, d.Password),
