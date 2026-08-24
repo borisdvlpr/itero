@@ -30,7 +30,7 @@ func Run(cfg *config.Config) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	dsn := cfg.DSN()
+	dsn := cfg.DB.DSN()
 
 	pool, err := db.NewConnectionPool(ctx, dsn)
 	if err != nil {
@@ -38,8 +38,8 @@ func Run(cfg *config.Config) error {
 	}
 	defer pool.Close()
 
-	if cfg.RunMigrations {
-		if err := db.RunMigrations(cfg.DSN()); err != nil {
+	if cfg.DB.RunMigrations {
+		if err := db.RunMigrations(cfg.DB.DSN()); err != nil {
 			return fmt.Errorf("failed to run migrations: %w", err)
 		}
 
@@ -48,7 +48,7 @@ func Run(cfg *config.Config) error {
 	}
 
 	srv := &http.Server{
-		Addr:    fmt.Sprintf("%s:%s", cfg.Address, cfg.Port),
+		Addr:    fmt.Sprintf("%s:%s", cfg.Server.Address, cfg.Server.Port),
 		Handler: service(cfg, logger, pool),
 	}
 
@@ -69,7 +69,7 @@ func Run(cfg *config.Config) error {
 
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.Server.ShutdownTimeout)
 	defer cancel()
 
 	if err := srv.Shutdown(shutdownCtx); err != nil {
@@ -92,8 +92,8 @@ func service(cfg *config.Config, logger *slog.Logger, pool *pgxpool.Pool) http.H
 
 	r.Use(mw.RequestLogger(logger, "/healthz", "/readyz"))
 	r.Use(mw.Recoverer(logger))
-	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
-	r.Use(chimw.Timeout(cfg.RequestTimeout))
+	r.Use(mw.MaxBodyBytes(cfg.Server.MaxRequestBytes))
+	r.Use(chimw.Timeout(cfg.Server.RequestTimeout))
 
 	health := handler.NewHealthHandler(pool)
 	health.Routes(r)

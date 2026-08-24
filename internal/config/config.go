@@ -10,20 +10,54 @@ import (
 	"time"
 )
 
+// Config is the root of itero's configuration. Everything below it is grouped
+// by the subsystem that consumes it, so a component can be handed the section
+// it needs rather than the whole struct.
 type Config struct {
+	LogLevel slog.Level
+	Server   ServerConfig
+	DB       DBConfig
+}
+
+// ServerConfig holds the HTTP listener and request-handling settings.
+type ServerConfig struct {
 	Address         string
 	Port            string
-	LogLevel        slog.Level
 	ShutdownTimeout time.Duration
 	RequestTimeout  time.Duration
 	MaxRequestBytes int64
-	PgUser          string
-	PgPassword      string
-	PgHost          string
-	PgPort          string
-	PgDatabase      string
-	PgSslMode       string
-	RunMigrations   bool
+}
+
+// Addr renders the listen address in the form http.Server expects.
+func (s ServerConfig) Addr() string {
+	return fmt.Sprintf("%s:%s", s.Address, s.Port)
+}
+
+// DBConfig holds the Postgres connection settings and the migration switch.
+type DBConfig struct {
+	User          string
+	Password      string
+	Host          string
+	Port          string
+	Database      string
+	SSLMode       string
+	RunMigrations bool
+}
+
+// DSN renders the connection string shared by the pgx pool and golang-migrate.
+func (d DBConfig) DSN() string {
+	u := &url.URL{
+		Scheme: "postgres",
+		User:   url.UserPassword(d.User, d.Password),
+		Host:   fmt.Sprintf("%s:%s", d.Host, d.Port),
+		Path:   d.Database,
+	}
+
+	q := u.Query()
+	q.Set("sslmode", d.SSLMode)
+	u.RawQuery = q.Encode()
+
+	return u.String()
 }
 
 func LoadConfig() (*Config, error) {
@@ -60,19 +94,23 @@ func LoadConfig() (*Config, error) {
 	}
 
 	return &Config{
-		Address:         envOrDefault("ADDRESS", "0.0.0.0"),
-		Port:            envOrDefault("PORT", "8000"),
-		LogLevel:        envLogLevel(),
-		ShutdownTimeout: shutdownTimeout,
-		RequestTimeout:  requestTimeout,
-		MaxRequestBytes: maxRequestBytes,
-		PgUser:          envOrDefault("PG_USER", "postgres"),
-		PgPassword:      envOrDefault("PG_PASSWORD", "password"),
-		PgHost:          envOrDefault("PG_HOST", "localhost"),
-		PgPort:          envOrDefault("PG_PORT", "5432"),
-		PgDatabase:      envOrDefault("PG_DATABASE", "itero"),
-		PgSslMode:       envOrDefault("PG_SSLMODE", "disable"),
-		RunMigrations:   runMigrations,
+		LogLevel: envLogLevel(),
+		Server: ServerConfig{
+			Address:         envOrDefault("ADDRESS", "0.0.0.0"),
+			Port:            envOrDefault("PORT", "8000"),
+			ShutdownTimeout: shutdownTimeout,
+			RequestTimeout:  requestTimeout,
+			MaxRequestBytes: maxRequestBytes,
+		},
+		DB: DBConfig{
+			User:          envOrDefault("PG_USER", "postgres"),
+			Password:      envOrDefault("PG_PASSWORD", "password"),
+			Host:          envOrDefault("PG_HOST", "localhost"),
+			Port:          envOrDefault("PG_PORT", "5432"),
+			Database:      envOrDefault("PG_DATABASE", "itero"),
+			SSLMode:       envOrDefault("PG_SSLMODE", "disable"),
+			RunMigrations: runMigrations,
+		},
 	}, nil
 }
 
@@ -125,19 +163,4 @@ func envLogLevel() slog.Level {
 	default:
 		return slog.LevelInfo
 	}
-}
-
-func (cfg Config) DSN() string {
-	u := &url.URL{
-		Scheme: "postgres",
-		User:   url.UserPassword(cfg.PgUser, cfg.PgPassword),
-		Host:   fmt.Sprintf("%s:%s", cfg.PgHost, cfg.PgPort),
-		Path:   cfg.PgDatabase,
-	}
-
-	q := u.Query()
-	q.Set("sslmode", cfg.PgSslMode)
-	u.RawQuery = q.Encode()
-
-	return u.String()
 }
