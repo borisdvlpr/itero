@@ -31,7 +31,9 @@ func main() {
 	}))
 	slog.SetDefault(logger)
 
-	slog.Info("itero", "version", version)
+	slog.Info("starting itero",
+		"version", version,
+	)
 
 	if err := server.Run(cfg); err != nil {
 		slog.Error("server exited with error", "error", err)
@@ -39,6 +41,8 @@ func main() {
 	}
 }
 
+// loadDotEnv reads .env when one is present. It is logged explicitly so that a
+// stray .env on a production host can never silently override the environment.
 func loadDotEnv() {
 	err := godotenv.Load()
 

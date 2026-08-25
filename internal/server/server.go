@@ -63,9 +63,14 @@ func Run(cfg *config.Config) error {
 	}
 
 	srv := &http.Server{
-		Addr:     cfg.Server.Addr(),
-		Handler:  service(cfg.Server, logger, Dependencies{Db: pool}),
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Addr:              cfg.Server.Addr(),
+		Handler:           service(cfg.Server, logger, Dependencies{Db: pool}),
+		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
+		ReadTimeout:       cfg.Server.ReadTimeout,
+		WriteTimeout:      cfg.Server.WriteTimeout,
+		IdleTimeout:       cfg.Server.IdleTimeout,
+		MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
+		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
