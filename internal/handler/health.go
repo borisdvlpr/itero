@@ -2,11 +2,13 @@ package handler
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/borisdvlpr/itero/internal/response"
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 )
 
 // Pingable is the only thing the health handler needs from the database, which
@@ -55,6 +57,12 @@ func (h *HealthHandler) readiness(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.db.Ping(ctx); err != nil {
+		slog.WarnContext(r.Context(), "readiness check failed",
+			"error", err,
+			"timeout", h.timeout,
+			"request_id", chimw.GetReqID(r.Context()),
+		)
+
 		response.JSON(w, r, http.StatusServiceUnavailable, healthResponse{
 			Status:   "unavailable",
 			Database: "unreachable",
