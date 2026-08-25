@@ -108,7 +108,10 @@ func service(cfg config.ServerConfig, logger *slog.Logger, deps Dependencies) ht
 	r := chi.NewRouter()
 
 	r.Use(chimw.RequestID)
-	r.Use(chimw.RealIP)
+
+	if cfg.TrustProxyHeaders {
+		r.Use(chimw.RealIP)
+	}
 
 	// Ahead of every middleware below that can write an error body: chi runs this
 	// chain before it matches a route, so a sub-router could not mark the dialect in time.
