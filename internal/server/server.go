@@ -120,7 +120,10 @@ func service(cfg config.ServerConfig, logger *slog.Logger, deps Dependencies) ht
 	r.Use(mw.RequestLogger(logger, "/healthz", "/readyz"))
 	r.Use(mw.Recoverer(logger))
 	r.Use(mw.MaxBodyBytes(cfg.MaxRequestBytes))
-	r.Use(chimw.Timeout(cfg.RequestTimeout))
+
+	if cfg.RequestTimeout > 0 {
+		r.Use(chimw.Timeout(cfg.RequestTimeout))
+	}
 
 	health := handler.NewHealthHandler(deps.Db, readinessTimeout)
 	health.Routes(r)
