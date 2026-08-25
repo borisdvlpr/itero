@@ -30,7 +30,7 @@ const ofrepPrefix = "/ofrep"
 const readinessTimeout = 2 * time.Second
 
 type Dependencies struct {
-	Db handler.Pingable
+	DB handler.Pingable
 }
 
 func Run(cfg *config.Config) error {
@@ -42,7 +42,7 @@ func Run(cfg *config.Config) error {
 	// The pool is created before migrations so that its startup backoff
 	// absorbs a database that is not accepting connections yet.
 	pool, err := db.NewConnectionPool(context.Background(), db.PoolConfig{
-		DSN:               cfg.DB.Dsn(),
+		DSN:               cfg.DB.DSN(),
 		MaxConns:          cfg.DB.MaxConns,
 		MinConns:          cfg.DB.MinConns,
 		MaxConnLifetime:   cfg.DB.MaxConnLifetime,
@@ -57,7 +57,7 @@ func Run(cfg *config.Config) error {
 	defer pool.Close()
 
 	if cfg.DB.RunMigrations {
-		if err := db.RunMigrations(cfg.DB.Dsn()); err != nil {
+		if err := db.RunMigrations(cfg.DB.DSN()); err != nil {
 			return fmt.Errorf("failed to run migrations: %w", err)
 		}
 
@@ -67,7 +67,7 @@ func Run(cfg *config.Config) error {
 
 	srv := &http.Server{
 		Addr:              cfg.Server.Addr(),
-		Handler:           service(cfg.Server, logger, Dependencies{Db: pool}),
+		Handler:           service(cfg.Server, logger, Dependencies{DB: pool}),
 		ReadHeaderTimeout: cfg.Server.ReadHeaderTimeout,
 		ReadTimeout:       cfg.Server.ReadTimeout,
 		WriteTimeout:      cfg.Server.WriteTimeout,
@@ -125,7 +125,7 @@ func service(cfg config.ServerConfig, logger *slog.Logger, deps Dependencies) ht
 		r.Use(chimw.Timeout(cfg.RequestTimeout))
 	}
 
-	health := handler.NewHealthHandler(deps.Db, readinessTimeout)
+	health := handler.NewHealthHandler(deps.DB, readinessTimeout)
 	health.Routes(r)
 
 	return r

@@ -61,7 +61,7 @@ type DBConfig struct {
 	RunMigrations     bool
 }
 
-func (d DBConfig) Dsn() string {
+func (d DBConfig) DSN() string {
 	u := &url.URL{
 		Scheme: "postgres",
 		User:   url.UserPassword(d.User, d.Password),
