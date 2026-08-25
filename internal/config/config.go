@@ -23,14 +23,23 @@ type Config struct {
 
 // ServerConfig holds the HTTP listener and request-handling settings.
 type ServerConfig struct {
-	Address         string
-	Port            string
-	ShutdownTimeout time.Duration
-	RequestTimeout  time.Duration
-	MaxRequestBytes int64
+	Address           string
+	Port              string
+	ReadHeaderTimeout time.Duration
+	ReadTimeout       time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
+	ShutdownTimeout   time.Duration
+	RequestTimeout    time.Duration
+	MaxHeaderBytes    int
+	MaxRequestBytes   int64
+
+	// TrustProxyHeaders enables X-Forwarded-For / X-Real-IP parsing. Only
+	// enable this when the service sits behind a proxy that overwrites those
+	// headers, otherwise any client can spoof its own address.
+	TrustProxyHeaders bool
 }
 
-// Addr renders the listen address in the form http.Server expects.
 func (s ServerConfig) Addr() string {
 	return net.JoinHostPort(s.Address, s.Port)
 }
@@ -91,11 +100,17 @@ func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		LogLevel: l.logLevel("LOG_LEVEL", slog.LevelInfo),
 		Server: ServerConfig{
-			Address:         l.optional("ADDRESS", "0.0.0.0"),
-			Port:            l.optional("PORT", "8000"),
-			ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "30s"),
-			RequestTimeout:  l.duration("REQUEST_TIMEOUT", "10s"),
-			MaxRequestBytes: l.integer("MAX_REQUEST_BYTES", 1<<20),
+			Address:           l.optional("ADDRESS", "0.0.0.0"),
+			Port:              l.optional("PORT", "8000"),
+			ReadHeaderTimeout: l.duration("READ_HEADER_TIMEOUT", "5s"),
+			ReadTimeout:       l.duration("READ_TIMEOUT", "15s"),
+			WriteTimeout:      l.duration("WRITE_TIMEOUT", "15s"),
+			IdleTimeout:       l.duration("IDLE_TIMEOUT", "120s"),
+			ShutdownTimeout:   l.duration("SHUTDOWN_TIMEOUT", "30s"),
+			RequestTimeout:    l.duration("REQUEST_TIMEOUT", "10s"),
+			MaxHeaderBytes:    int(l.integer("MAX_HEADER_BYTES", 1<<20)),
+			MaxRequestBytes:   l.integer("MAX_REQUEST_BYTES", 1<<20),
+			TrustProxyHeaders: l.boolean("TRUST_PROXY_HEADERS", false),
 		},
 		DB: DBConfig{
 			User:              l.optional("PG_USER", "postgres"),
