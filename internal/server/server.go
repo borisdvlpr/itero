@@ -36,6 +36,9 @@ type Dependencies struct {
 func Run(cfg *config.Config) error {
 	logger := slog.Default()
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	// The pool is created before migrations so that its startup backoff
 	// absorbs a database that is not accepting connections yet.
 	pool, err := db.NewConnectionPool(context.Background(), db.PoolConfig{
@@ -72,9 +75,6 @@ func Run(cfg *config.Config) error {
 		MaxHeaderBytes:    cfg.Server.MaxHeaderBytes,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelError),
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 
 	serverErr := make(chan error, 1)
 
