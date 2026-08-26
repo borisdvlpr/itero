@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func TestLoadConfigDefaults(t *testing.T) {
+func TestLoadConfig_Defaults(t *testing.T) {
 	setMinimalEnv(t)
 
 	cfg, err := LoadConfig()
@@ -28,7 +28,7 @@ func TestLoadConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestLoadConfigRequiresPassword(t *testing.T) {
+func TestLoadConfig_RequiresPassword(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("PG_PASSWORD", "")
 
@@ -42,7 +42,7 @@ func TestLoadConfigRequiresPassword(t *testing.T) {
 	}
 }
 
-func TestLoadConfigReportsEveryProblemAtOnce(t *testing.T) {
+func TestLoadConfig_ReportsEveryProblemAtOnce(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("PG_PASSWORD", "")
 	t.Setenv("SHUTDOWN_TIMEOUT", "thirty")
@@ -60,7 +60,7 @@ func TestLoadConfigReportsEveryProblemAtOnce(t *testing.T) {
 	}
 }
 
-func TestLoadConfigRejectsUnknownLogLevel(t *testing.T) {
+func TestLoadConfig_RejectsUnknownLogLevel(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("LOG_LEVEL", "warning") // valid-looking, but not a slog level
 
@@ -69,7 +69,7 @@ func TestLoadConfigRejectsUnknownLogLevel(t *testing.T) {
 	}
 }
 
-func TestLoadConfigParsesLogLevel(t *testing.T) {
+func TestLoadConfig_ParsesLogLevel(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("LOG_LEVEL", "debug")
 
@@ -83,7 +83,7 @@ func TestLoadConfigParsesLogLevel(t *testing.T) {
 	}
 }
 
-func TestLoadConfigRejectsUnknownSSLMode(t *testing.T) {
+func TestLoadConfig_RejectsUnknownSSLMode(t *testing.T) {
 	setMinimalEnv(t)
 	t.Setenv("PG_SSLMODE", "off")
 
@@ -92,7 +92,7 @@ func TestLoadConfigRejectsUnknownSSLMode(t *testing.T) {
 	}
 }
 
-func TestDSNEscapesCredentials(t *testing.T) {
+func TestDSN_EscapesCredentials(t *testing.T) {
 	db := DBConfig{
 		User:     "itero",
 		Password: "p@ss word/1",
@@ -113,7 +113,7 @@ func TestDSNEscapesCredentials(t *testing.T) {
 	}
 }
 
-func TestDBConfigLogValueRedactsPassword(t *testing.T) {
+func TestDBConfig_LogValueRedactsPassword(t *testing.T) {
 	db := DBConfig{
 		User:     "itero",
 		Password: "s3cret",
