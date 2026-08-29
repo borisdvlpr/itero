@@ -1,0 +1,42 @@
+#:schema https://json.schemastore.org/any.json
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Dev build: no -trimpath/-s -w, so stack traces stay readable.
+  cmd = "go build -o ./tmp/itero ./cmd/itero"
+  bin = "tmp/itero"
+
+  # "sql" is required: migrations are embedded with //go:embed.
+  include_ext = ["go", "sql"]
+  include_file = [".env"]
+  exclude_dir = ["tmp", "bin", "dist", ".git", ".github", "vendor"]
+  exclude_regex = ["_test\\.go"]
+  exclude_unchanged = true
+
+  # Reach srv.Shutdown and pool.Close() instead of being killed outright.
+  send_interrupt = true
+  # Must be a quoted duration; a bare integer is nanoseconds.
+  kill_delay = "2s"
+
+  stop_on_error = true
+  delay = 200
+
+  # Set true under Docker/WSL2 bind mounts, where fsnotify does not fire.
+  poll = false
+
+  log = "air.log"
+
+[log]
+  time = false
+
+[screen]
+  clear_on_rebuild = true
+  keep_scroll = false
+
+[misc]
+  clean_on_exit = true
+
+[proxy]
+  enabled = false
