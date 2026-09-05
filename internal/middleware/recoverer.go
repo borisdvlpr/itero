@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
@@ -24,7 +25,7 @@ func Recoverer(logger *slog.Logger) func(http.Handler) http.Handler {
 				}
 
 				// net/http uses this sentinel to abort a connection deliberately; it must keep propagating
-				if err, ok := rvr.(error); ok && err == http.ErrAbortHandler {
+				if err, ok := rvr.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 					panic(rvr)
 				}
 
