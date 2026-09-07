@@ -62,21 +62,21 @@ type ReadinessTestCase struct {
 func TestReadiness(t *testing.T) {
 	tests := []ReadinessTestCase{
 		{
-			id:              "DatabaseReachable",
+			id:              "Database_reachable",
 			db:              StubPinger{},
 			timeout:         time.Second,
 			wantStatus:      http.StatusOK,
 			wantStatusField: "ready",
 		},
 		{
-			id:              "DatabaseUnreachable",
+			id:              "Database_unreachable",
 			db:              StubPinger{err: errors.New("connection refused")},
 			timeout:         time.Second,
 			wantStatus:      http.StatusServiceUnavailable,
 			wantStatusField: "unavailable",
 		},
 		{
-			id:              "DatabaseTooSlow",
+			id:              "Database_too_slow",
 			db:              StubPinger{delay: 50 * time.Millisecond},
 			timeout:         time.Millisecond,
 			wantStatus:      http.StatusServiceUnavailable,
