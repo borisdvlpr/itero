@@ -37,7 +37,6 @@ func newTestRouter(db Pingable, timeout time.Duration) http.Handler {
 }
 
 func TestLiveness_IgnoresDatabase(t *testing.T) {
-	// A wedged database must not restart the pod, so /healthz has to stay green even when Ping fails.
 	router := newTestRouter(StubPinger{err: errors.New("connection refused")}, time.Second)
 
 	rec := httptest.NewRecorder()
