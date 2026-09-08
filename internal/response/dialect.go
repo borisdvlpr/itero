@@ -15,8 +15,6 @@ import (
 type Dialect uint8
 
 const (
-	// ProblemJSON is the zero value, so any request not explicitly marked
-	// otherwise falls back to RFC 9457.
 	ProblemJSON Dialect = iota
 	OFREP
 )
