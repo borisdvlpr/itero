@@ -51,12 +51,6 @@ func TestDialect(t *testing.T) {
 			path:     "/ofrep/v1/evaluate/flags",
 			want:     ProblemJSON,
 		},
-		{
-			name:     "Defaults_to_problem_details",
-			prefixes: []string{"/anything"},
-			path:     "/anything",
-			want:     ProblemJSON,
-		},
 	}
 
 	for _, tc := range tests {
@@ -74,5 +68,13 @@ func TestDialect(t *testing.T) {
 				t.Errorf("dialect = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestDialectFromDefaultsToProblemJSON(t *testing.T) {
+	r := httptest.NewRequest(http.MethodGet, "/anything", nil)
+
+	if got := dialectFrom(r.Context()); got != ProblemJSON {
+		t.Errorf("dialect = %v, want ProblemJSON", got)
 	}
 }
