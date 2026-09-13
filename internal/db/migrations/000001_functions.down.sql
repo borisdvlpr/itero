@@ -1,0 +1,9 @@
+DROP FUNCTION IF EXISTS check_variant_weights();
+DROP FUNCTION IF EXISTS inherit_variant_columns();
+DROP FUNCTION IF EXISTS inherit_flag_environment_columns();
+DROP FUNCTION IF EXISTS bump_revision_from_flag_environment_child();
+DROP FUNCTION IF EXISTS bump_revision_from_flag_environment();
+DROP FUNCTION IF EXISTS bump_revision_from_flag();
+DROP FUNCTION IF EXISTS bump_environments(UUID[]);
+DROP FUNCTION IF EXISTS touch_row();
+DROP FUNCTION IF EXISTS set_updated_at();
